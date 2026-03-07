@@ -8,7 +8,6 @@
     :root {
       --bg: #0b1220;
       --panel: #121b2e;
-      --panel-2: #18233b;
       --text: #e8eefc;
       --muted: #9fb0d3;
       --accent: #66c0f4;
@@ -33,9 +32,9 @@
     }
 
     .wrap {
-      max-width: 1200px;
+      width: min(1720px, calc(100vw - 32px));
       margin: 0 auto;
-      padding: 28px 18px 40px;
+      padding: 24px 0 36px;
     }
 
     .hero {
@@ -56,13 +55,20 @@
     .hero p {
       margin: 0;
       color: var(--muted);
-      max-width: 780px;
+      max-width: 980px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
+      grid-template-columns: minmax(540px, 1.3fr) minmax(420px, 1fr);
       gap: 18px;
+      align-items: start;
     }
 
     .panel {
@@ -93,9 +99,47 @@
       padding: 18px;
     }
 
+    .settings-panel {
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+
+    .settings-panel[hidden],
+    .cooldown-card[hidden] {
+      display: none;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 360px));
+      gap: 18px;
+      align-items: end;
+    }
+
+    .setting-field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .setting-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .setting-inline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     textarea {
       width: 100%;
-      min-height: 260px;
+      min-height: 280px;
       resize: vertical;
       border-radius: 14px;
       border: 1px solid var(--border);
@@ -106,16 +150,35 @@
       outline: none;
     }
 
-    textarea:focus {
+    textarea:focus,
+    input[type="number"]:focus {
       border-color: var(--accent-2);
       box-shadow: 0 0 0 4px rgba(26, 159, 255, 0.12);
     }
 
-    .controls {
+    input[type="number"] {
+      width: 110px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #0a1120;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+      outline: none;
+    }
+
+    .setting-help {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .controls,
+    .cooldown-actions {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       margin-top: 14px;
+      align-items: center;
     }
 
     button {
@@ -147,9 +210,28 @@
       color: #fff4f6;
     }
 
+    .icon-btn {
+      width: 48px;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid var(--border);
+      background: rgba(12, 22, 38, 0.82);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+
+    .icon-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
     .stats {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 16px;
     }
@@ -206,20 +288,57 @@
       transition: width 0.25s ease;
     }
 
+    .progress-fill.warn {
+      background: linear-gradient(90deg, #fbbf24, #f97316);
+    }
+
     .live-status {
       border: 1px solid var(--border);
       background: #0d1627;
       border-radius: 14px;
       padding: 12px 14px;
       color: var(--muted);
-      margin-bottom: 16px;
       min-height: 84px;
       white-space: pre-wrap;
     }
 
+    .cooldown-card {
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      background: linear-gradient(180deg, rgba(251,191,36,0.10), rgba(15,23,42,0.55));
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .cooldown-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .cooldown-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .cooldown-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .cooldown-remaining {
+      font-size: 13px;
+      color: var(--warn);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
     .results-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
       gap: 12px;
     }
 
@@ -238,14 +357,14 @@
     }
 
     .subpanel textarea {
-      min-height: 220px;
+      min-height: min(34vh, 300px);
       border: 0;
       border-radius: 0;
       background: transparent;
     }
 
     .log {
-      max-height: 420px;
+      max-height: min(58vh, 760px);
       overflow: auto;
       border: 1px solid var(--border);
       background: #0d1627;
@@ -295,9 +414,30 @@
     }
 
     @media (max-width: 980px) {
-      .grid { grid-template-columns: 1fr; }
-      .stats { grid-template-columns: repeat(2, 1fr); }
-      .results-grid { grid-template-columns: 1fr; }
+      .wrap {
+        width: min(calc(100vw - 20px), 100%);
+      }
+
+      .hero {
+        flex-direction: column;
+      }
+
+      .hero-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .results-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -308,11 +448,31 @@
         <h1>Steam Workshop Missing Mod Checker</h1>
         <p>
           Paste Workshop IDs, or paste the full <code>ZOMBOID_MOD_WORKSHOP_IDS=...</code> line.
-          This version checks both HTTP status and Steam’s HTML error-page content, slows requests to reduce 429s,
-          retries rate-limited IDs in later rounds, and updates results live while it runs.
+          This version checks both HTTP status and Steam's HTML error-page content, pauses the queue when Steam starts
+          rate limiting, and updates results live while it runs.
         </p>
       </div>
+      <div class="hero-actions">
+        <button id="settingsToggle" class="icon-btn" type="button" title="Settings" aria-expanded="false" aria-controls="settingsPanel">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.17 7.17 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.49-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.13.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.5a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.42h3.84a.5.5 0 0 0 .49-.42l.36-2.54c.58-.22 1.13-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.56ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z"></path>
+          </svg>
+        </button>
+      </div>
     </div>
+
+    <section id="settingsPanel" class="settings-panel" hidden>
+      <div class="settings-grid">
+        <label class="setting-field" for="cooldownInput">
+          <span class="setting-label">429 cooldown</span>
+          <div class="setting-inline">
+            <input id="cooldownInput" type="number" min="5" max="300" step="5" value="30" />
+            <span class="muted">seconds</span>
+          </div>
+          <span class="setting-help">Used for the next run. Range: 5 to 300 seconds.</span>
+        </label>
+      </div>
+    </section>
 
     <div class="grid">
       <section class="panel">
@@ -373,6 +533,23 @@
             </div>
           </div>
 
+          <div id="cooldownCard" class="cooldown-card" hidden>
+            <div class="cooldown-head">
+              <div>
+                <div id="cooldownTitle" class="cooldown-title">Cooldown active</div>
+                <div id="cooldownMeta" class="cooldown-meta">Waiting before the next round.</div>
+              </div>
+              <div id="cooldownRemaining" class="cooldown-remaining">0s</div>
+            </div>
+            <div class="progress-bar">
+              <div id="cooldownFill" class="progress-fill warn"></div>
+            </div>
+            <div class="cooldown-actions">
+              <button id="skipCooldownBtn" class="secondary" disabled>Resume now</button>
+              <span class="muted">Interrupt the cooldown and continue immediately.</span>
+            </div>
+          </div>
+
           <div id="liveStatus" class="live-status">Nothing running.</div>
         </div>
       </section>
@@ -416,10 +593,18 @@
   </div>
 
   <script>
+    const SETTINGS_KEY = "steamWorkshopChecker.cooldownSeconds";
+    const DEFAULT_COOLDOWN_SECONDS = 30;
+    const MIN_COOLDOWN_SECONDS = 5;
+    const MAX_COOLDOWN_SECONDS = 300;
+
     const idsInput = document.getElementById("idsInput");
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const clearBtn = document.getElementById("clearBtn");
+    const settingsToggle = document.getElementById("settingsToggle");
+    const settingsPanel = document.getElementById("settingsPanel");
+    const cooldownInput = document.getElementById("cooldownInput");
 
     const runState = document.getElementById("runState");
     const liveStatus = document.getElementById("liveStatus");
@@ -435,15 +620,118 @@
     const progressPct = document.getElementById("progressPct");
     const progressFill = document.getElementById("progressFill");
 
+    const cooldownCard = document.getElementById("cooldownCard");
+    const cooldownTitle = document.getElementById("cooldownTitle");
+    const cooldownMeta = document.getElementById("cooldownMeta");
+    const cooldownRemaining = document.getElementById("cooldownRemaining");
+    const cooldownFill = document.getElementById("cooldownFill");
+    const skipCooldownBtn = document.getElementById("skipCooldownBtn");
+
     const badIdsEl = document.getElementById("badIds");
     const badUrlsEl = document.getElementById("badUrls");
     const resultsBody = document.getElementById("resultsBody");
 
     let activeRunController = null;
+    let activeRunId = null;
+    let activeCooldown = null;
+    let cooldownTicker = null;
 
     function setRunningState(isRunning) {
       startBtn.disabled = isRunning;
       stopBtn.disabled = !isRunning;
+    }
+
+    function clampCooldownSeconds(value) {
+      const numericValue = Number(value);
+
+      if (!Number.isFinite(numericValue)) {
+        return DEFAULT_COOLDOWN_SECONDS;
+      }
+
+      return Math.min(
+        MAX_COOLDOWN_SECONDS,
+        Math.max(MIN_COOLDOWN_SECONDS, Math.round(numericValue))
+      );
+    }
+
+    function loadCooldownSeconds() {
+      return clampCooldownSeconds(window.localStorage.getItem(SETTINGS_KEY));
+    }
+
+    function saveCooldownSeconds(value) {
+      const seconds = clampCooldownSeconds(value);
+      cooldownInput.value = String(seconds);
+      window.localStorage.setItem(SETTINGS_KEY, String(seconds));
+      return seconds;
+    }
+
+    function setSettingsOpen(isOpen) {
+      settingsPanel.hidden = !isOpen;
+      settingsToggle.setAttribute("aria-expanded", String(isOpen));
+    }
+
+    function stopCooldownTicker() {
+      if (!cooldownTicker) return;
+      window.clearInterval(cooldownTicker);
+      cooldownTicker = null;
+    }
+
+    function clearCooldownUI() {
+      stopCooldownTicker();
+      activeCooldown = null;
+      cooldownCard.hidden = true;
+      cooldownFill.style.width = "0%";
+      cooldownRemaining.textContent = "0s";
+      cooldownTitle.textContent = "Cooldown active";
+      cooldownMeta.textContent = "Waiting before the next round.";
+      skipCooldownBtn.disabled = true;
+      skipCooldownBtn.textContent = "Resume now";
+    }
+
+    function formatDuration(ms) {
+      const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+    }
+
+    function renderCooldownUI() {
+      if (!activeCooldown) return;
+
+      const remainingMs = Math.max(0, activeCooldown.endsAt - Date.now());
+      const elapsedMs = Math.min(activeCooldown.waitMs, activeCooldown.waitMs - remainingMs);
+      const pct = activeCooldown.waitMs > 0
+        ? Math.round((elapsedMs / activeCooldown.waitMs) * 100)
+        : 100;
+
+      cooldownFill.style.width = `${pct}%`;
+      cooldownRemaining.textContent = `${formatDuration(remainingMs)} remaining`;
+
+      if (remainingMs <= 0) {
+        stopCooldownTicker();
+        skipCooldownBtn.disabled = true;
+        cooldownRemaining.textContent = "Resuming...";
+      }
+    }
+
+    function showCooldownUI(data) {
+      stopCooldownTicker();
+
+      activeCooldown = {
+        waitMs: Number(data.waitMs) || 0,
+        endsAt: Date.now() + (Number(data.waitMs) || 0),
+        nextRound: data.nextRound,
+        pendingCount: data.pendingCount
+      };
+
+      cooldownCard.hidden = false;
+      cooldownTitle.textContent = `Steam hit a rate limit. Pausing before round ${data.nextRound}.`;
+      cooldownMeta.textContent = `${data.pendingCount} IDs are queued while the checker waits.`;
+      skipCooldownBtn.disabled = false;
+      skipCooldownBtn.textContent = "Resume now";
+
+      renderCooldownUI();
+      cooldownTicker = window.setInterval(renderCooldownUI, 250);
     }
 
     function parseIds(input) {
@@ -489,6 +777,7 @@
       badIdsEl.value = "";
       badUrlsEl.value = "";
       resultsBody.innerHTML = "";
+      clearCooldownUI();
     }
 
     function appendResultRow(result) {
@@ -496,8 +785,8 @@
       row.innerHTML = `
         <td><code>${escapeHtml(result.id)}</code></td>
         <td>${statePill(result.state)}</td>
-        <td>${escapeHtml(result.status == null ? "—" : result.status)}</td>
-        <td>${escapeHtml(result.attempts ?? "—")}</td>
+        <td>${escapeHtml(result.status == null ? "-" : result.status)}</td>
+        <td>${escapeHtml(result.attempts ?? "-")}</td>
         <td>${escapeHtml(result.reason || "")}</td>
       `;
       resultsBody.appendChild(row);
@@ -526,10 +815,40 @@
     function stopRun() {
       if (!activeRunController) return;
 
+      clearCooldownUI();
       runState.textContent = "Stopping";
       liveStatus.textContent = "Stopping current run...";
       progressLabel.textContent = "Stopping";
       activeRunController.abort();
+    }
+
+    async function skipCooldown() {
+      if (!activeRunId || !activeCooldown) return;
+
+      skipCooldownBtn.disabled = true;
+      skipCooldownBtn.textContent = "Resuming...";
+
+      try {
+        const response = await fetch("http://localhost:3000/control", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            runId: activeRunId,
+            action: "skip_cooldown"
+          })
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text}`);
+        }
+      } catch (err) {
+        skipCooldownBtn.disabled = false;
+        skipCooldownBtn.textContent = "Resume now";
+        liveStatus.textContent = `Could not interrupt cooldown.\n${err.message}`;
+      }
     }
 
     async function startRun() {
@@ -544,7 +863,9 @@
 
       resetUI();
       const controller = new AbortController();
+      const cooldownSeconds = saveCooldownSeconds(cooldownInput.value);
       activeRunController = controller;
+      activeRunId = null;
       setRunningState(true);
       runState.textContent = "Running";
       statTotal.textContent = String(ids.length);
@@ -557,7 +878,10 @@
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ ids }),
+          body: JSON.stringify({
+            ids,
+            cooldownMs: cooldownSeconds * 1000
+          }),
           signal: controller.signal
         });
 
@@ -602,14 +926,17 @@
             const data = JSON.parse(dataStr);
 
             if (eventName === "start") {
+              activeRunId = data.runId || null;
               liveStatus.textContent = `Run started. ${data.total} IDs queued.`;
               updateProgress(0, data.total, "Queued");
             }
 
             if (eventName === "round") {
+              clearCooldownUI();
+              runState.textContent = "Running";
               liveStatus.textContent =
-                `Starting round ${data.round}/${data.totalRounds}\n` +
-                `IDs in this round: ${data.pendingCount}`;
+                `Round ${data.round} of ${data.totalRounds} started.\n` +
+                `${data.pendingCount} IDs are queued in this pass.`;
             }
 
             if (eventName === "progress") {
@@ -619,9 +946,6 @@
 
               if (data.phase === "requesting") {
                 text += `\nRound ${data.round}, attempt ${data.attempt}`;
-              } else if (data.phase === "rate_limited") {
-                text += `\nRound ${data.round}, hit 429`;
-                text += `\nWaiting ${(data.retryInMs / 1000).toFixed(1)}s before retry ${data.attempt + 1}`;
               } else if (data.phase === "queued") {
                 text += `\nRound ${data.round}, queued`;
               }
@@ -632,16 +956,26 @@
 
             if (eventName === "deferred") {
               liveStatus.textContent =
-                `Deferred due to 429: ${data.id}\n` +
-                `Will retry in round ${data.retryRound}\n` +
-                `Currently queued for retry: ${data.pendingCount}`;
+                `Steam returned 429 on ${data.id}.\n` +
+                `Paused with ${data.pendingCount} IDs still queued.\n` +
+                `Next automatic attempt will be round ${data.retryRound}.`;
             }
 
             if (eventName === "cooldown") {
+              runState.textContent = "Cooling down";
+              showCooldownUI(data);
               liveStatus.textContent =
-                `Cooling down after round ${data.round}\n` +
-                `${data.pendingCount} IDs still rate-limited\n` +
-                `Waiting ${(data.waitMs / 1000).toFixed(0)} seconds before round ${data.nextRound}`;
+                `Steam is rate limiting requests.\n` +
+                `${data.pendingCount} IDs are paused.\n` +
+                `The run will resume automatically after the cooldown unless you resume now.`;
+            }
+
+            if (eventName === "cooldown_skipped") {
+              clearCooldownUI();
+              runState.textContent = "Running";
+              liveStatus.textContent =
+                `Cooldown interrupted.\n` +
+                `Resuming round ${data.nextRound} now.`;
             }
 
             if (eventName === "result") {
@@ -666,6 +1000,7 @@
             }
 
             if (eventName === "done") {
+              clearCooldownUI();
               const summary = data.summary;
               updateSummary(summary);
               updateProgress(summary.completed, summary.total || ids.length, "Complete");
@@ -674,6 +1009,10 @@
                 `Checked ${summary.completed}/${summary.total} IDs.\n` +
                 `Missing: ${summary.missing}, OK: ${summary.ok}, Pending 429: ${summary.pending429}, Final 429: ${summary.final429}.`;
               runState.textContent = "Complete";
+            }
+
+            if (eventName === "fatal") {
+              throw new Error(data.error || "Server-side failure");
             }
           }
         }
@@ -688,7 +1027,9 @@
           runState.textContent = "Stopped";
           liveStatus.textContent = `Run stopped.\nCompleted ${done}/${total} IDs before cancellation.`;
           updateProgress(done, total, "Stopped");
+          clearCooldownUI();
         } else {
+          clearCooldownUI();
           runState.textContent = "Error";
           liveStatus.textContent = `Error: ${err.message}`;
         }
@@ -696,16 +1037,29 @@
         if (activeRunController === controller) {
           activeRunController = null;
         }
+        if (!activeRunController) {
+          activeRunId = null;
+        }
         setRunningState(false);
       }
     }
 
+    settingsToggle.addEventListener("click", () => {
+      setSettingsOpen(settingsPanel.hidden);
+    });
+
+    cooldownInput.addEventListener("change", () => {
+      saveCooldownSeconds(cooldownInput.value);
+    });
+
     startBtn.addEventListener("click", startRun);
     stopBtn.addEventListener("click", stopRun);
+    skipCooldownBtn.addEventListener("click", skipCooldown);
 
     clearBtn.addEventListener("click", () => {
       const controller = activeRunController;
       activeRunController = null;
+      activeRunId = null;
       if (controller) {
         controller.abort();
       }
@@ -714,6 +1068,8 @@
       idsInput.value = "";
     });
 
+    cooldownInput.value = String(loadCooldownSeconds());
+    setSettingsOpen(false);
     setRunningState(false);
     resetUI();
   </script>

@@ -7,9 +7,14 @@ const PORT = 3000;
 const REQUEST_DELAY_MS = 1200;
 
 const MAX_429_ROUNDS = 4;
-const ROUND_429_COOLDOWN_MS = 120000;
+const ROUND_429_COOLDOWN_MS = 30000;
+const MIN_429_COOLDOWN_MS = 5000;
+const MAX_429_COOLDOWN_MS = 300000;
 
 const REQUEST_TIMEOUT_MS = 20000;
+
+const activeRuns = new Map();
+let nextRunSequence = 1;
 
 class CancelledError extends Error {
   constructor(message = "Run cancelled") {
@@ -23,6 +28,25 @@ function createCancelState() {
     cancelled: false,
     listeners: new Set()
   };
+}
+
+function createRunId() {
+  const runId = `run-${Date.now()}-${nextRunSequence}`;
+  nextRunSequence += 1;
+  return runId;
+}
+
+function normalizeCooldownMs(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return ROUND_429_COOLDOWN_MS;
+  }
+
+  return Math.min(
+    MAX_429_COOLDOWN_MS,
+    Math.max(MIN_429_COOLDOWN_MS, Math.round(numericValue))
+  );
 }
 
 function cancelRun(cancelState) {
@@ -65,6 +89,59 @@ function sleepWithCancel(ms, cancelState) {
     };
 
     cancelState.listeners.add(onCancel);
+  });
+}
+
+function waitForCooldown(runState, cooldownInfo, sendEvent) {
+  if (runState.cancelState.cancelled) {
+    return Promise.reject(new CancelledError());
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const finish = (handler, value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      handler(value);
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      runState.cancelState.listeners.delete(onCancel);
+
+      if (runState.cooldown && runState.cooldown.skip === skipCooldown) {
+        runState.cooldown = null;
+      }
+    };
+
+    const onCancel = () => {
+      finish(reject, new CancelledError());
+    };
+
+    const timeout = setTimeout(() => {
+      finish(resolve, { skipped: false });
+    }, cooldownInfo.waitMs);
+
+    const skipCooldown = () => {
+      sendEvent("cooldown_skipped", {
+        round: cooldownInfo.round,
+        nextRound: cooldownInfo.nextRound,
+        pendingCount: cooldownInfo.pendingCount
+      });
+      finish(resolve, { skipped: true });
+    };
+
+    runState.cooldown = {
+      active: true,
+      startedAt: cooldownInfo.startedAt,
+      endsAt: cooldownInfo.endsAt,
+      waitMs: cooldownInfo.waitMs,
+      skip: skipCooldown
+    };
+
+    runState.cancelState.listeners.add(onCancel);
   });
 }
 
@@ -239,6 +316,54 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === "POST" && req.url === "/control") {
+    let body = "";
+
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 256 * 1024) {
+        req.destroy();
+      }
+    });
+
+    req.on("end", () => {
+      try {
+        const parsed = JSON.parse(body || "{}");
+        const runId = typeof parsed.runId === "string" ? parsed.runId.trim() : "";
+        const action = typeof parsed.action === "string" ? parsed.action.trim() : "";
+
+        if (!runId || !action) {
+          sendJson(res, 400, { error: "runId and action are required." });
+          return;
+        }
+
+        const runState = activeRuns.get(runId);
+
+        if (!runState) {
+          sendJson(res, 404, { error: "Run not found." });
+          return;
+        }
+
+        if (action !== "skip_cooldown") {
+          sendJson(res, 400, { error: "Unsupported action." });
+          return;
+        }
+
+        if (!runState.cooldown || typeof runState.cooldown.skip !== "function") {
+          sendJson(res, 409, { error: "Run is not currently in cooldown." });
+          return;
+        }
+
+        runState.cooldown.skip();
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message });
+      }
+    });
+
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/check") {
     let body = "";
 
@@ -251,6 +376,7 @@ const server = http.createServer((req, res) => {
 
     req.on("end", async () => {
       const cancelState = createCancelState();
+      let runId = null;
       let sseStarted = false;
 
       const handleDisconnect = () => {
@@ -267,11 +393,21 @@ const server = http.createServer((req, res) => {
         const ids = Array.isArray(parsed.ids)
           ? [...new Set(parsed.ids.map(String).map((s) => s.trim()).filter((s) => /^\d+$/.test(s)))]
           : [];
+        const cooldownMs = normalizeCooldownMs(parsed.cooldownMs);
 
         if (!ids.length) {
           sendJson(res, 400, { error: "No valid numeric IDs provided." });
           return;
         }
+
+        runId = createRunId();
+        const runState = {
+          id: runId,
+          cancelState,
+          cooldown: null
+        };
+
+        activeRuns.set(runId, runState);
 
         res.writeHead(200, {
           "Content-Type": "text/event-stream; charset=utf-8",
@@ -302,7 +438,11 @@ const server = http.createServer((req, res) => {
           final429: 0
         };
 
-        sendEvent("start", { total: ids.length });
+        sendEvent("start", {
+          total: ids.length,
+          runId,
+          cooldownMs
+        });
 
         const finalResultsById = new Map();
         const attemptsById = new Map();
@@ -381,14 +521,18 @@ const server = http.createServer((req, res) => {
           pendingQueue = next429Queue;
 
           if (pendingQueue.length > 0 && round < MAX_429_ROUNDS) {
-            sendEvent("cooldown", {
+            const cooldownInfo = {
               round,
               nextRound: round + 1,
               pendingCount: pendingQueue.length,
-              waitMs: ROUND_429_COOLDOWN_MS
-            });
+              waitMs: cooldownMs,
+              startedAt: Date.now(),
+              endsAt: Date.now() + cooldownMs
+            };
 
-            await sleepWithCancel(ROUND_429_COOLDOWN_MS, cancelState);
+            sendEvent("cooldown", cooldownInfo);
+
+            await waitForCooldown(runState, cooldownInfo, sendEvent);
           }
 
           round += 1;
@@ -445,6 +589,10 @@ const server = http.createServer((req, res) => {
         }
 
         sendJson(res, 400, { error: err.message });
+      } finally {
+        if (runId) {
+          activeRuns.delete(runId);
+        }
       }
     });
 
