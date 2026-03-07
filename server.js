@@ -13,8 +13,61 @@ const ROUND_429_COOLDOWN_MS = 30000;
 
 const REQUEST_TIMEOUT_MS = 20000;
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+class CancelledError extends Error {
+  constructor(message = "Run cancelled") {
+    super(message);
+    this.name = "CancelledError";
+  }
+}
+
+function createCancelState() {
+  return {
+    cancelled: false,
+    listeners: new Set()
+  };
+}
+
+function cancelRun(cancelState) {
+  if (cancelState.cancelled) return;
+
+  cancelState.cancelled = true;
+
+  for (const listener of [...cancelState.listeners]) {
+    listener();
+  }
+
+  cancelState.listeners.clear();
+}
+
+function throwIfCancelled(cancelState) {
+  if (cancelState.cancelled) {
+    throw new CancelledError();
+  }
+}
+
+function sleepWithCancel(ms, cancelState) {
+  if (cancelState.cancelled) {
+    return Promise.reject(new CancelledError());
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const onCancel = () => {
+      cleanup();
+      reject(new CancelledError());
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      cancelState.listeners.delete(onCancel);
+    };
+
+    cancelState.listeners.add(onCancel);
+  });
 }
 
 function workshopUrl(id) {
@@ -49,9 +102,26 @@ function classifySteamResponse(status, body) {
   return { kind: "unknown", reason: `Unrecognized response (HTTP ${status})` };
 }
 
-function fetchSteamPage(id) {
-  return new Promise((resolve) => {
+function fetchSteamPage(id, cancelState) {
+  return new Promise((resolve, reject) => {
+    if (cancelState.cancelled) {
+      reject(new CancelledError());
+      return;
+    }
+
     const target = new URL(workshopUrl(id));
+    let settled = false;
+
+    const finish = (handler, value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      handler(value);
+    };
+
+    const cleanup = () => {
+      cancelState.listeners.delete(onCancel);
+    };
 
     const req = https.request(
       {
@@ -79,7 +149,7 @@ function fetchSteamPage(id) {
         });
 
         res.on("end", () => {
-          resolve({
+          finish(resolve, {
             id,
             url: target.toString(),
             status: res.statusCode || null,
@@ -91,7 +161,12 @@ function fetchSteamPage(id) {
     );
 
     req.on("error", (err) => {
-      resolve({
+      if (cancelState.cancelled || err instanceof CancelledError || err.message === "Run cancelled") {
+        finish(reject, new CancelledError());
+        return;
+      }
+
+      finish(resolve, {
         id,
         url: target.toString(),
         status: null,
@@ -105,18 +180,26 @@ function fetchSteamPage(id) {
       req.destroy(new Error("Request timed out"));
     });
 
+    const onCancel = () => {
+      req.destroy(new CancelledError());
+      finish(reject, new CancelledError());
+    };
+
+    cancelState.listeners.add(onCancel);
+
     req.end();
   });
 }
 
-async function checkSteamUrl(id, onAttempt) {
+async function checkSteamUrl(id, onAttempt, cancelState) {
   let attempt = 0;
 
   while (attempt < MAX_RETRIES) {
+    throwIfCancelled(cancelState);
     attempt += 1;
     if (onAttempt) onAttempt({ id, attempt, phase: "requesting" });
 
-    const response = await fetchSteamPage(id);
+    const response = await fetchSteamPage(id, cancelState);
 
     if (response.error) {
       return {
@@ -141,7 +224,7 @@ async function checkSteamUrl(id, onAttempt) {
             retryInMs: RETRY_DELAY_MS
           });
         }
-        await sleep(RETRY_DELAY_MS);
+        await sleepWithCancel(RETRY_DELAY_MS, cancelState);
         continue;
       }
 
@@ -207,6 +290,18 @@ const server = http.createServer((req, res) => {
     });
 
     req.on("end", async () => {
+      const cancelState = createCancelState();
+      let sseStarted = false;
+
+      const handleDisconnect = () => {
+        cancelRun(cancelState);
+      };
+
+      req.on("aborted", handleDisconnect);
+      res.on("close", handleDisconnect);
+
+      let sendEvent = () => {};
+
       try {
         const parsed = JSON.parse(body || "{}");
         const ids = Array.isArray(parsed.ids)
@@ -225,7 +320,13 @@ const server = http.createServer((req, res) => {
           "Access-Control-Allow-Origin": "*"
         });
 
-        const sendEvent = (event, payload) => {
+        sseStarted = true;
+
+        sendEvent = (event, payload) => {
+          if (cancelState.cancelled || res.writableEnded || res.destroyed) {
+            return;
+          }
+
           res.write(`event: ${event}\n`);
           res.write(`data: ${JSON.stringify(payload)}\n\n`);
         };
@@ -248,6 +349,8 @@ const server = http.createServer((req, res) => {
         let round = 1;
 
         while (pendingQueue.length > 0 && round <= MAX_429_ROUNDS) {
+          throwIfCancelled(cancelState);
+
           sendEvent("round", {
             round,
             totalRounds: MAX_429_ROUNDS,
@@ -257,6 +360,8 @@ const server = http.createServer((req, res) => {
           const next429Queue = [];
 
           for (let i = 0; i < pendingQueue.length; i++) {
+            throwIfCancelled(cancelState);
+
             const id = pendingQueue[i];
 
             sendEvent("progress", {
@@ -275,7 +380,7 @@ const server = http.createServer((req, res) => {
                 round,
                 ...attemptInfo
               });
-            });
+            }, cancelState);
 
             if (result.state === "rate_limited") {
               next429Queue.push(id);
@@ -304,7 +409,7 @@ const server = http.createServer((req, res) => {
             }
 
             if (i < pendingQueue.length - 1) {
-              await sleep(REQUEST_DELAY_MS);
+              await sleepWithCancel(REQUEST_DELAY_MS, cancelState);
             }
           }
 
@@ -318,7 +423,7 @@ const server = http.createServer((req, res) => {
               waitMs: ROUND_429_COOLDOWN_MS
             });
 
-            await sleep(ROUND_429_COOLDOWN_MS);
+            await sleepWithCancel(ROUND_429_COOLDOWN_MS, cancelState);
           }
 
           round += 1;
@@ -353,8 +458,25 @@ const server = http.createServer((req, res) => {
           totalResults: finalResultsById.size
         });
 
-        res.end();
+        if (!res.writableEnded) {
+          res.end();
+        }
       } catch (err) {
+        if (err instanceof CancelledError || cancelState.cancelled) {
+          if (!res.writableEnded) {
+            res.end();
+          }
+          return;
+        }
+
+        if (sseStarted) {
+          sendEvent("fatal", { error: err.message });
+          if (!res.writableEnded) {
+            res.end();
+          }
+          return;
+        }
+
         sendJson(res, 400, { error: err.message });
       }
     });

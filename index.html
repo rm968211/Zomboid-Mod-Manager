@@ -142,6 +142,11 @@
       border: 1px solid var(--border);
     }
 
+    .danger {
+      background: linear-gradient(180deg, #fb7185, #e11d48);
+      color: #fff4f6;
+    }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
@@ -319,6 +324,7 @@
           <textarea id="idsInput" placeholder="ZOMBOID_MOD_WORKSHOP_IDS=2392709985;2804428637;2774834715"></textarea>
           <div class="controls">
             <button id="startBtn" class="primary">Start check</button>
+            <button id="stopBtn" class="danger" disabled>Stop</button>
             <button id="clearBtn" class="secondary">Clear results</button>
           </div>
         </div>
@@ -412,6 +418,7 @@
   <script>
     const idsInput = document.getElementById("idsInput");
     const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
     const clearBtn = document.getElementById("clearBtn");
 
     const runState = document.getElementById("runState");
@@ -431,6 +438,13 @@
     const badIdsEl = document.getElementById("badIds");
     const badUrlsEl = document.getElementById("badUrls");
     const resultsBody = document.getElementById("resultsBody");
+
+    let activeRunController = null;
+
+    function setRunningState(isRunning) {
+      startBtn.disabled = isRunning;
+      stopBtn.disabled = !isRunning;
+    }
 
     function parseIds(input) {
       return [...new Set(
@@ -509,7 +523,18 @@
       progressLabel.textContent = labelText;
     }
 
+    function stopRun() {
+      if (!activeRunController) return;
+
+      runState.textContent = "Stopping";
+      liveStatus.textContent = "Stopping current run...";
+      progressLabel.textContent = "Stopping";
+      activeRunController.abort();
+    }
+
     async function startRun() {
+      if (activeRunController) return;
+
       const ids = parseIds(idsInput.value);
 
       if (!ids.length) {
@@ -518,7 +543,9 @@
       }
 
       resetUI();
-      startBtn.disabled = true;
+      const controller = new AbortController();
+      activeRunController = controller;
+      setRunningState(true);
       runState.textContent = "Running";
       statTotal.textContent = String(ids.length);
       liveStatus.textContent = `Submitting ${ids.length} IDs to the local checker...`;
@@ -530,7 +557,8 @@
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ ids })
+          body: JSON.stringify({ ids }),
+          signal: controller.signal
         });
 
         if (!response.ok) {
@@ -650,20 +678,43 @@
           }
         }
       } catch (err) {
-        runState.textContent = "Error";
-        liveStatus.textContent = `Error: ${err.message}`;
+        if (controller.signal.aborted) {
+          if (activeRunController !== controller) {
+            return;
+          }
+
+          const done = Number(statDone.textContent) || 0;
+          const total = Number(statTotal.textContent) || ids.length;
+          runState.textContent = "Stopped";
+          liveStatus.textContent = `Run stopped.\nCompleted ${done}/${total} IDs before cancellation.`;
+          updateProgress(done, total, "Stopped");
+        } else {
+          runState.textContent = "Error";
+          liveStatus.textContent = `Error: ${err.message}`;
+        }
       } finally {
-        startBtn.disabled = false;
+        if (activeRunController === controller) {
+          activeRunController = null;
+        }
+        setRunningState(false);
       }
     }
 
     startBtn.addEventListener("click", startRun);
+    stopBtn.addEventListener("click", stopRun);
 
     clearBtn.addEventListener("click", () => {
+      const controller = activeRunController;
+      activeRunController = null;
+      if (controller) {
+        controller.abort();
+      }
+      setRunningState(false);
       resetUI();
       idsInput.value = "";
     });
 
+    setRunningState(false);
     resetUI();
   </script>
 </body>
