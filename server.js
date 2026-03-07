@@ -5,11 +5,9 @@ const { URL } = require("url");
 const PORT = 3000;
 
 const REQUEST_DELAY_MS = 1200;
-const RETRY_DELAY_MS = 5000;
-const MAX_RETRIES = 3;
 
 const MAX_429_ROUNDS = 4;
-const ROUND_429_COOLDOWN_MS = 30000;
+const ROUND_429_COOLDOWN_MS = 120000;
 
 const REQUEST_TIMEOUT_MS = 20000;
 
@@ -192,69 +190,31 @@ function fetchSteamPage(id, cancelState) {
 }
 
 async function checkSteamUrl(id, onAttempt, cancelState) {
-  let attempt = 0;
+  throwIfCancelled(cancelState);
+  if (onAttempt) onAttempt({ id, attempt: 1, phase: "requesting" });
 
-  while (attempt < MAX_RETRIES) {
-    throwIfCancelled(cancelState);
-    attempt += 1;
-    if (onAttempt) onAttempt({ id, attempt, phase: "requesting" });
+  const response = await fetchSteamPage(id, cancelState);
 
-    const response = await fetchSteamPage(id, cancelState);
-
-    if (response.error) {
-      return {
-        id,
-        url: response.url,
-        status: null,
-        state: "error",
-        reason: response.error,
-        attempts: attempt
-      };
-    }
-
-    const classification = classifySteamResponse(response.status, response.body);
-
-    if (classification.kind === "rate_limited") {
-      if (attempt < MAX_RETRIES) {
-        if (onAttempt) {
-          onAttempt({
-            id,
-            attempt,
-            phase: "rate_limited",
-            retryInMs: RETRY_DELAY_MS
-          });
-        }
-        await sleepWithCancel(RETRY_DELAY_MS, cancelState);
-        continue;
-      }
-
-      return {
-        id,
-        url: response.url,
-        status: response.status,
-        state: "rate_limited",
-        reason: classification.reason,
-        attempts: attempt
-      };
-    }
-
+  if (response.error) {
     return {
       id,
       url: response.url,
-      status: response.status,
-      state: classification.kind,
-      reason: classification.reason,
-      attempts: attempt
+      status: null,
+      state: "error",
+      reason: response.error,
+      attempts: 1
     };
   }
 
+  const classification = classifySteamResponse(response.status, response.body);
+
   return {
     id,
-    url: workshopUrl(id),
-    status: null,
-    state: "error",
-    reason: "Exceeded retry limit",
-    attempts: MAX_RETRIES
+    url: response.url,
+    status: response.status,
+    state: classification.kind,
+    reason: classification.reason,
+    attempts: 1
   };
 }
 
@@ -345,6 +305,7 @@ const server = http.createServer((req, res) => {
         sendEvent("start", { total: ids.length });
 
         const finalResultsById = new Map();
+        const attemptsById = new Map();
         let pendingQueue = [...ids];
         let round = 1;
 
@@ -382,8 +343,10 @@ const server = http.createServer((req, res) => {
               });
             }, cancelState);
 
+            attemptsById.set(id, (attemptsById.get(id) || 0) + (result.attempts || 0));
+
             if (result.state === "rate_limited") {
-              next429Queue.push(id);
+              next429Queue.push(...pendingQueue.slice(i));
               summary.pending429 = next429Queue.length;
 
               sendEvent("deferred", {
@@ -393,6 +356,8 @@ const server = http.createServer((req, res) => {
                 retryRound: round + 1,
                 pendingCount: next429Queue.length
               });
+
+              break;
             } else {
               finalResultsById.set(id, result);
               summary.completed += 1;
@@ -436,8 +401,10 @@ const server = http.createServer((req, res) => {
               url: workshopUrl(id),
               status: 429,
               state: "rate_limited_final",
-              reason: `Still rate-limited after ${MAX_429_ROUNDS} rounds`,
-              attempts: MAX_RETRIES * MAX_429_ROUNDS
+              reason: (attemptsById.get(id) || 0) > 0
+                ? `Still rate-limited after ${attemptsById.get(id)} 429 response${attemptsById.get(id) === 1 ? "" : "s"}`
+                : "Skipped because the run stayed rate-limited during cooldown rounds",
+              attempts: attemptsById.get(id) || 0
             };
 
             finalResultsById.set(id, result);
