@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Steam Workshop Missing Mod Checker</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121b2e;
+      --panel-2: #18233b;
+      --text: #e8eefc;
+      --muted: #9fb0d3;
+      --accent: #66c0f4;
+      --accent-2: #1a9fff;
+      --good: #4ade80;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --border: #22304d;
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(26,159,255,0.14), transparent 30%),
+        linear-gradient(180deg, #09101c 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 780px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 16px 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .panel-body {
+      padding: 18px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 260px;
+      resize: vertical;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #0a1120;
+      color: var(--text);
+      padding: 14px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 4px rgba(26, 159, 255, 0.12);
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.08s ease, opacity 0.2s ease, background 0.2s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    .primary {
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      color: #04101b;
+    }
+
+    .secondary {
+      background: #1a243b;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      border: 1px solid var(--border);
+      background: #0d1627;
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .stat .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .stat .value {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+
+    .progress-wrap {
+      margin-bottom: 18px;
+    }
+
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: #0a1120;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.25s ease;
+    }
+
+    .live-status {
+      border: 1px solid var(--border);
+      background: #0d1627;
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      min-height: 84px;
+      white-space: pre-wrap;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .subpanel {
+      border: 1px solid var(--border);
+      background: #0d1627;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .subpanel h3 {
+      margin: 0;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .subpanel textarea {
+      min-height: 220px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .log {
+      max-height: 420px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      background: #0d1627;
+      border-radius: 14px;
+      padding: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      background: #10192c;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid currentColor;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    code {
+      color: #d7e3ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .results-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Steam Workshop Missing Mod Checker</h1>
+        <p>
+          Paste Workshop IDs, or paste the full <code>ZOMBOID_MOD_WORKSHOP_IDS=...</code> line.
+          This version checks both HTTP status and Steam’s HTML error-page content, slows requests to reduce 429s,
+          retries rate-limited IDs in later rounds, and updates results live while it runs.
+        </p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Input</h2>
+          <span class="muted">IDs separated by commas, semicolons, spaces, or newlines</span>
+        </div>
+        <div class="panel-body">
+          <textarea id="idsInput" placeholder="ZOMBOID_MOD_WORKSHOP_IDS=2392709985;2804428637;2774834715"></textarea>
+          <div class="controls">
+            <button id="startBtn" class="primary">Start check</button>
+            <button id="clearBtn" class="secondary">Clear results</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Progress</h2>
+          <span id="runState" class="muted">Idle</span>
+        </div>
+        <div class="panel-body">
+          <div class="stats">
+            <div class="stat">
+              <div class="label">Total</div>
+              <div id="statTotal" class="value">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Done</div>
+              <div id="statDone" class="value">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Missing</div>
+              <div id="statMissing" class="value bad">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">OK</div>
+              <div id="statOk" class="value good">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Pending 429</div>
+              <div id="statPending429" class="value warn">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Other</div>
+              <div id="statOther" class="value warn">0</div>
+            </div>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="progress-top">
+              <span id="progressLabel">Waiting to start</span>
+              <span id="progressPct">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div id="progressFill" class="progress-fill"></div>
+            </div>
+          </div>
+
+          <div id="liveStatus" class="live-status">Nothing running.</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top: 18px;">
+      <div class="panel-head">
+        <h2>Results</h2>
+        <span class="muted">Updates as each ID finishes</span>
+      </div>
+      <div class="panel-body">
+        <div class="results-grid">
+          <div class="subpanel">
+            <h3>Missing IDs</h3>
+            <textarea id="badIds" readonly></textarea>
+          </div>
+          <div class="subpanel">
+            <h3>Missing URLs</h3>
+            <textarea id="badUrls" readonly></textarea>
+          </div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <div class="log">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 140px;">ID</th>
+                <th style="width: 160px;">State</th>
+                <th style="width: 90px;">HTTP</th>
+                <th style="width: 90px;">Attempts</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const idsInput = document.getElementById("idsInput");
+    const startBtn = document.getElementById("startBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    const runState = document.getElementById("runState");
+    const liveStatus = document.getElementById("liveStatus");
+
+    const statTotal = document.getElementById("statTotal");
+    const statDone = document.getElementById("statDone");
+    const statMissing = document.getElementById("statMissing");
+    const statOk = document.getElementById("statOk");
+    const statPending429 = document.getElementById("statPending429");
+    const statOther = document.getElementById("statOther");
+
+    const progressLabel = document.getElementById("progressLabel");
+    const progressPct = document.getElementById("progressPct");
+    const progressFill = document.getElementById("progressFill");
+
+    const badIdsEl = document.getElementById("badIds");
+    const badUrlsEl = document.getElementById("badUrls");
+    const resultsBody = document.getElementById("resultsBody");
+
+    function parseIds(input) {
+      return [...new Set(
+        input
+          .replace(/^.*?=/, "")
+          .split(/[\s,;]+/)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .filter(s => /^\d+$/.test(s))
+      )];
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function statePill(state) {
+      let cls = "warn";
+      if (state === "ok") cls = "good";
+      if (state === "missing" || state === "error" || state === "client_error" || state === "server_error" || state === "rate_limited_final") cls = "bad";
+
+      return `<span class="pill ${cls}">${escapeHtml(state)}</span>`;
+    }
+
+    function resetUI() {
+      runState.textContent = "Idle";
+      liveStatus.textContent = "Nothing running.";
+      statTotal.textContent = "0";
+      statDone.textContent = "0";
+      statMissing.textContent = "0";
+      statOk.textContent = "0";
+      statPending429.textContent = "0";
+      statOther.textContent = "0";
+      progressLabel.textContent = "Waiting to start";
+      progressPct.textContent = "0%";
+      progressFill.style.width = "0%";
+      badIdsEl.value = "";
+      badUrlsEl.value = "";
+      resultsBody.innerHTML = "";
+    }
+
+    function appendResultRow(result) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><code>${escapeHtml(result.id)}</code></td>
+        <td>${statePill(result.state)}</td>
+        <td>${escapeHtml(result.status == null ? "—" : result.status)}</td>
+        <td>${escapeHtml(result.attempts ?? "—")}</td>
+        <td>${escapeHtml(result.reason || "")}</td>
+      `;
+      resultsBody.appendChild(row);
+    }
+
+    function updateSummary(summary) {
+      const other =
+        (summary.unknown || 0) +
+        (summary.errors || 0) +
+        (summary.final429 || 0);
+
+      statDone.textContent = String(summary.completed || 0);
+      statMissing.textContent = String(summary.missing || 0);
+      statOk.textContent = String(summary.ok || 0);
+      statPending429.textContent = String(summary.pending429 || 0);
+      statOther.textContent = String(other);
+    }
+
+    function updateProgress(done, total, labelText) {
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      progressFill.style.width = `${pct}%`;
+      progressPct.textContent = `${pct}%`;
+      progressLabel.textContent = labelText;
+    }
+
+    async function startRun() {
+      const ids = parseIds(idsInput.value);
+
+      if (!ids.length) {
+        liveStatus.textContent = "No valid numeric IDs found.";
+        return;
+      }
+
+      resetUI();
+      startBtn.disabled = true;
+      runState.textContent = "Running";
+      statTotal.textContent = String(ids.length);
+      liveStatus.textContent = `Submitting ${ids.length} IDs to the local checker...`;
+      updateProgress(0, ids.length, "Starting");
+
+      try {
+        const response = await fetch("http://localhost:3000/check", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ ids })
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        const missingIds = [];
+        const missingUrls = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          let boundaryIndex;
+          while ((boundaryIndex = buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = buffer.slice(0, boundaryIndex).trim();
+            buffer = buffer.slice(boundaryIndex + 2);
+
+            if (!rawEvent) continue;
+
+            let eventName = "message";
+            let dataStr = "";
+
+            for (const line of rawEvent.split("\n")) {
+              if (line.startsWith("event:")) {
+                eventName = line.slice(6).trim();
+              } else if (line.startsWith("data:")) {
+                dataStr += line.slice(5).trim();
+              }
+            }
+
+            if (!dataStr) continue;
+
+            const data = JSON.parse(dataStr);
+
+            if (eventName === "start") {
+              liveStatus.textContent = `Run started. ${data.total} IDs queued.`;
+              updateProgress(0, data.total, "Queued");
+            }
+
+            if (eventName === "round") {
+              liveStatus.textContent =
+                `Starting round ${data.round}/${data.totalRounds}\n` +
+                `IDs in this round: ${data.pendingCount}`;
+            }
+
+            if (eventName === "progress") {
+              const current = data.current || 0;
+              const total = data.total || ids.length;
+              let text = `Processing ${current}/${total}: ${data.id}`;
+
+              if (data.phase === "requesting") {
+                text += `\nRound ${data.round}, attempt ${data.attempt}`;
+              } else if (data.phase === "rate_limited") {
+                text += `\nRound ${data.round}, hit 429`;
+                text += `\nWaiting ${(data.retryInMs / 1000).toFixed(1)}s before retry ${data.attempt + 1}`;
+              } else if (data.phase === "queued") {
+                text += `\nRound ${data.round}, queued`;
+              }
+
+              liveStatus.textContent = text;
+              updateProgress(Math.max(0, current - 1), total, `Working on ${data.id}`);
+            }
+
+            if (eventName === "deferred") {
+              liveStatus.textContent =
+                `Deferred due to 429: ${data.id}\n` +
+                `Will retry in round ${data.retryRound}\n` +
+                `Currently queued for retry: ${data.pendingCount}`;
+            }
+
+            if (eventName === "cooldown") {
+              liveStatus.textContent =
+                `Cooling down after round ${data.round}\n` +
+                `${data.pendingCount} IDs still rate-limited\n` +
+                `Waiting ${(data.waitMs / 1000).toFixed(0)} seconds before round ${data.nextRound}`;
+            }
+
+            if (eventName === "result") {
+              const result = data.result;
+              const summary = data.summary;
+
+              appendResultRow(result);
+              updateSummary(summary);
+              updateProgress(summary.completed, summary.total || ids.length, `Finished ${summary.completed}/${summary.total || ids.length}`);
+
+              if (result.state === "missing") {
+                missingIds.push(result.id);
+                missingUrls.push(result.url);
+                badIdsEl.value = missingIds.join("\n");
+                badUrlsEl.value = missingUrls.join("\n");
+              }
+
+              liveStatus.textContent =
+                `Last finished: ${result.id}\n` +
+                `State: ${result.state}\n` +
+                `Reason: ${result.reason}`;
+            }
+
+            if (eventName === "done") {
+              const summary = data.summary;
+              updateSummary(summary);
+              updateProgress(summary.completed, summary.total || ids.length, "Complete");
+              liveStatus.textContent =
+                `Run complete.\n` +
+                `Checked ${summary.completed}/${summary.total} IDs.\n` +
+                `Missing: ${summary.missing}, OK: ${summary.ok}, Pending 429: ${summary.pending429}, Final 429: ${summary.final429}.`;
+              runState.textContent = "Complete";
+            }
+          }
+        }
+      } catch (err) {
+        runState.textContent = "Error";
+        liveStatus.textContent = `Error: ${err.message}`;
+      } finally {
+        startBtn.disabled = false;
+      }
+    }
+
+    startBtn.addEventListener("click", startRun);
+
+    clearBtn.addEventListener("click", () => {
+      resetUI();
+      idsInput.value = "";
+    });
+
+    resetUI();
+  </script>
+</body>
+</html>
