@@ -6,7 +6,7 @@ const PORT = 3000;
 
 const REQUEST_DELAY_MS = 1200;
 
-const MAX_429_ROUNDS = 4;
+const MAX_429_ROUNDS = 15;
 const ROUND_429_COOLDOWN_MS = 30000;
 const MIN_429_COOLDOWN_MS = 5000;
 const MAX_429_COOLDOWN_MS = 300000;
@@ -107,8 +107,13 @@ function waitForCooldown(runState, cooldownInfo, sendEvent) {
       handler(value);
     };
 
+    const heartbeatInterval = setInterval(() => {
+      sendEvent("heartbeat", { round: cooldownInfo.round });
+    }, 10000);
+
     const cleanup = () => {
       clearTimeout(timeout);
+      clearInterval(heartbeatInterval);
       runState.cancelState.listeners.delete(onCancel);
 
       if (runState.cooldown && runState.cooldown.skip === skipCooldown) {

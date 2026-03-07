@@ -231,7 +231,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 16px;
     }
@@ -514,10 +514,6 @@
               <div id="statOk" class="value good">0</div>
             </div>
             <div class="stat">
-              <div class="label">Pending 429</div>
-              <div id="statPending429" class="value warn">0</div>
-            </div>
-            <div class="stat">
               <div class="label">Other</div>
               <div id="statOther" class="value warn">0</div>
             </div>
@@ -613,7 +609,6 @@
     const statDone = document.getElementById("statDone");
     const statMissing = document.getElementById("statMissing");
     const statOk = document.getElementById("statOk");
-    const statPending429 = document.getElementById("statPending429");
     const statOther = document.getElementById("statOther");
 
     const progressLabel = document.getElementById("progressLabel");
@@ -725,7 +720,7 @@
       };
 
       cooldownCard.hidden = false;
-      cooldownTitle.textContent = `Steam hit a rate limit. Pausing before round ${data.nextRound}.`;
+      cooldownTitle.textContent = `Steam hit a rate limit. Pausing before retrying.`;
       cooldownMeta.textContent = `${data.pendingCount} IDs are queued while the checker waits.`;
       skipCooldownBtn.disabled = false;
       skipCooldownBtn.textContent = "Resume now";
@@ -769,7 +764,6 @@
       statDone.textContent = "0";
       statMissing.textContent = "0";
       statOk.textContent = "0";
-      statPending429.textContent = "0";
       statOther.textContent = "0";
       progressLabel.textContent = "Waiting to start";
       progressPct.textContent = "0%";
@@ -801,7 +795,6 @@
       statDone.textContent = String(summary.completed || 0);
       statMissing.textContent = String(summary.missing || 0);
       statOk.textContent = String(summary.ok || 0);
-      statPending429.textContent = String(summary.pending429 || 0);
       statOther.textContent = String(other);
     }
 
@@ -1007,7 +1000,7 @@
               liveStatus.textContent =
                 `Run complete.\n` +
                 `Checked ${summary.completed}/${summary.total} IDs.\n` +
-                `Missing: ${summary.missing}, OK: ${summary.ok}, Pending 429: ${summary.pending429}, Final 429: ${summary.final429}.`;
+                `Missing: ${summary.missing}, OK: ${summary.ok}, Rate-limited (not checked): ${summary.final429}.`;
               runState.textContent = "Complete";
             }
 
