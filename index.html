@@ -787,10 +787,7 @@
     }
 
     function updateSummary(summary) {
-      const other =
-        (summary.unknown || 0) +
-        (summary.errors || 0) +
-        (summary.final429 || 0);
+      const other = (summary.unknown || 0) + (summary.errors || 0);
 
       statDone.textContent = String(summary.completed || 0);
       statMissing.textContent = String(summary.missing || 0);
@@ -1000,7 +997,7 @@
               liveStatus.textContent =
                 `Run complete.\n` +
                 `Checked ${summary.completed}/${summary.total} IDs.\n` +
-                `Missing: ${summary.missing}, OK: ${summary.ok}, Rate-limited (not checked): ${summary.final429}.`;
+                `Missing: ${summary.missing}, OK: ${summary.ok}.`;
               runState.textContent = "Complete";
             }
 

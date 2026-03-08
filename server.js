@@ -438,9 +438,7 @@ const server = http.createServer((req, res) => {
           ok: 0,
           missing: 0,
           unknown: 0,
-          errors: 0,
-          pending429: 0,
-          final429: 0
+          errors: 0
         };
 
         sendEvent("start", {
@@ -492,7 +490,6 @@ const server = http.createServer((req, res) => {
 
             if (result.state === "rate_limited") {
               next429Queue.push(...pendingQueue.slice(i));
-              summary.pending429 = next429Queue.length;
 
               sendEvent("deferred", {
                 id,
@@ -558,7 +555,6 @@ const server = http.createServer((req, res) => {
 
             finalResultsById.set(id, result);
             summary.completed += 1;
-            summary.final429 += 1;
 
             sendEvent("result", {
               result,
@@ -566,8 +562,6 @@ const server = http.createServer((req, res) => {
             });
           }
         }
-
-        summary.pending429 = 0;
 
         sendEvent("done", {
           summary,
