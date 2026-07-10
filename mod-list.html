@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zomboid Mod Checker</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: #333;
+      --text: #e0e0e0;
+      --muted: #888;
+      --green: #4caf50;
+      --red: #f44336;
+      --blue: #64b5f6;
+      --accent: #76c442;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    h1 { font-size: 1.8rem; color: var(--accent); margin-bottom: 0.25rem; }
+
+    .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem; }
+
+    .input-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    label { display: block; margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--muted); }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.75rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+      outline: none;
+    }
+
+    textarea:focus { border-color: var(--accent); }
+
+    .btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.6rem 1.5rem;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .summary {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-width: 80px;
+    }
+
+    .stat .num { font-size: 1.3rem; font-weight: 700; line-height: 1.2; }
+    .stat.s-tot .num { color: var(--accent); }
+    .stat.s-b42 .num { color: var(--green); }
+    .stat.s-b41 .num { color: var(--red); }
+    .stat.s-unk .num { color: var(--muted); }
+    .stat.s-gone .num { color: #c62828; }
+
+    .filters {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+
+    .filter-btn {
+      padding: 0.3rem 0.85rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(118, 196, 66, 0.08);
+    }
+
+    .cards { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      transition: border-color 0.15s;
+    }
+
+    .card:hover { border-color: #555; }
+    .card.hidden { display: none; }
+
+    .thumb {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: var(--surface2);
+      flex-shrink: 0;
+    }
+
+    .thumb-placeholder {
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+    }
+
+    .card-body { flex: 1; min-width: 0; }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .mod-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .mod-name:hover { color: var(--accent); }
+
+    .badge {
+      flex-shrink: 0;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .badge-b42  { background: rgba(76,175,80,0.12); color: var(--green); border: 1px solid rgba(76,175,80,0.35); }
+    .badge-b41  { background: rgba(244,67,54,0.12); color: var(--red);   border: 1px solid rgba(244,67,54,0.35); }
+    .badge-unk  { background: rgba(136,136,136,0.1); color: var(--muted); border: 1px solid rgba(136,136,136,0.25); }
+    .badge-gone { background: rgba(198,40,40,0.1);  color: #c62828;      border: 1px solid rgba(198,40,40,0.3); }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .card-meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      align-items: center;
+    }
+
+    .meta-sep { color: var(--border); }
+
+    .steam-link { color: var(--blue); text-decoration: none; }
+    .steam-link:hover { text-decoration: underline; }
+
+    .error-msg {
+      color: var(--red);
+      background: rgba(244,67,54,0.08);
+      border: 1px solid rgba(244,67,54,0.3);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .loading {
+      text-align: center;
+      color: var(--muted);
+      padding: 3rem;
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 1.1rem;
+      height: 1.1rem;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #results { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Zomboid Mod Checker</h1>
+    <p class="subtitle">Paste Workshop IDs to see mod details and Build 42 compatibility</p>
+
+    <div class="input-section">
+      <label for="ids-input">Workshop IDs — one per line, or space/comma/semicolon separated</label>
+      <textarea id="ids-input" placeholder="2676289522&#10;2688809268&#10;2874068769&#10;..."></textarea>
+      <button class="btn" id="check-btn" onclick="checkMods()">Check Mods</button>
+    </div>
+
+    <div id="results">
+      <div id="error-area"></div>
+      <div class="summary" id="summary"></div>
+      <div class="filters" id="filters"></div>
+      <div class="cards" id="cards"></div>
+    </div>
+  </div>
+
+  <script>
+    function parseIds(raw) {
+      return [...new Set(
+        raw.split(/[\s,;\n]+/)
+           .map(s => s.trim())
+           .filter(s => /^\d+$/.test(s))
+      )];
+    }
+
+    function detectCompat(tags, result) {
+      if (result !== 1) return "gone";
+      if (!tags || !tags.length) return "unknown";
+      const names = tags.map(t => (t.tag || "").toLowerCase());
+      if (names.some(t => t === "build 42" || t === "b42")) return "b42";
+      if (names.some(t => t === "build 41" || t === "b41")) return "b41";
+      return "unknown";
+    }
+
+    function fmtDate(ts) {
+      if (!ts) return null;
+      return new Date(ts * 1000).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    }
+
+    function fmtSize(bytes) {
+      if (!bytes) return null;
+      const b = parseInt(bytes, 10);
+      if (b >= 1073741824) return (b / 1073741824).toFixed(1) + " GB";
+      if (b >= 1048576)    return (b / 1048576).toFixed(1) + " MB";
+      if (b >= 1024)       return (b / 1024).toFixed(0) + " KB";
+      return b + " B";
+    }
+
+    function fmtNum(n) {
+      const i = parseInt(n, 10);
+      return isNaN(i) ? null : i.toLocaleString();
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function badgeHtml(compat) {
+      const map = {
+        b42:  ["badge-b42",  "B42 ✓"],
+        b41:  ["badge-b41",  "B41 Only"],
+        unknown: ["badge-unk", "Unknown"],
+        gone: ["badge-gone", "Not Found"],
+      };
+      const [cls, label] = map[compat] || map.unknown;
+      return `<span class="badge ${cls}">${label}</span>`;
+    }
+
+    function renderCard(detail, idx) {
+      const compat = detectCompat(detail.tags, detail.result);
+      const id = String(detail.publishedfileid);
+      const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${id}`;
+
+      if (detail.result !== 1) {
+        return { compat, html: `
+          <div class="card" data-compat="${compat}">
+            <div class="thumb-placeholder">?</div>
+            <div class="card-body">
+              <div class="card-header">
+                <span class="mod-name" style="color:var(--muted)">ID: ${esc(id)}</span>
+                ${badgeHtml(compat)}
+              </div>
+              <div class="card-meta">
+                <a class="steam-link" href="${esc(url)}" target="_blank" rel="noopener">View on Steam →</a>
+              </div>
+            </div>
+          </div>`
+        };
+      }
+
+      const COMPAT_TAGS = new Set(["build 41","build 42","b41","b42"]);
+      const displayTags = (detail.tags || [])
+        .map(t => t.tag || "")
+        .filter(t => !COMPAT_TAGS.has(t.toLowerCase()))
+        .slice(0, 8);
+
+      const thumb = detail.preview_url;
+      const subs = fmtNum(detail.subscriptions);
+      const updated = fmtDate(detail.time_updated);
+      const size = fmtSize(detail.file_size);
+
+      const metaParts = [];
+      if (subs)    metaParts.push(`★ ${subs}`);
+      if (updated) metaParts.push(`Updated ${updated}`);
+      if (size)    metaParts.push(size);
+
+      const thumbHtml = thumb
+        ? `<img class="thumb" src="${esc(thumb)}" alt="" onerror="this.outerHTML='<div class=&quot;thumb-placeholder&quot;>🧟</div>'">`
+        : `<div class="thumb-placeholder">🧟</div>`;
+
+      return { compat, html: `
+        <div class="card" data-compat="${compat}">
+          ${thumbHtml}
+          <div class="card-body">
+            <div class="card-header">
+              <a class="mod-name" href="${esc(url)}" target="_blank" rel="noopener">${esc(detail.title || id)}</a>
+              ${badgeHtml(compat)}
+            </div>
+            ${displayTags.length ? `<div class="tags">${displayTags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+            <div class="card-meta">
+              ${metaParts.map(esc).join('<span class="meta-sep"> · </span>')}
+              ${metaParts.length ? '<span class="meta-sep"> · </span>' : ""}
+              <a class="steam-link" href="${esc(url)}" target="_blank" rel="noopener">Steam →</a>
+            </div>
+          </div>
+        </div>`
+      };
+    }
+
+    function applyFilter(filter) {
+      document.querySelectorAll(".filter-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.filter === filter)
+      );
+      document.querySelectorAll(".card").forEach(card =>
+        card.classList.toggle("hidden", filter !== "all" && card.dataset.compat !== filter)
+      );
+    }
+
+    async function checkMods() {
+      const raw = document.getElementById("ids-input").value;
+      const ids = parseIds(raw);
+      const errorArea = document.getElementById("error-area");
+      const resultsEl = document.getElementById("results");
+      errorArea.innerHTML = "";
+      resultsEl.style.display = "block";
+
+      if (!ids.length) {
+        errorArea.innerHTML = `<div class="error-msg">No valid Workshop IDs found — IDs should be numeric.</div>`;
+        return;
+      }
+
+      const btn = document.getElementById("check-btn");
+      document.getElementById("summary").innerHTML = "";
+      document.getElementById("filters").innerHTML = "";
+      document.getElementById("cards").innerHTML =
+        `<div class="loading"><span class="spinner"></span>Fetching ${ids.length} mod${ids.length !== 1 ? "s" : ""}…</div>`;
+
+      try {
+        const res = await fetch("/details", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+
+        const { details } = await res.json();
+        const counts = { b42: 0, b41: 0, unknown: 0, gone: 0 };
+        const rendered = details.map((d, i) => {
+          const { compat, html } = renderCard(d, i);
+          counts[compat] = (counts[compat] || 0) + 1;
+          return html;
+        });
+
+        document.getElementById("summary").innerHTML = `
+          <div class="stat s-tot"><div class="num">${details.length}</div><div>Total</div></div>
+          <div class="stat s-b42"><div class="num">${counts.b42}</div><div>B42</div></div>
+          <div class="stat s-b41"><div class="num">${counts.b41}</div><div>B41 Only</div></div>
+          <div class="stat s-unk"><div class="num">${counts.unknown}</div><div>Unknown</div></div>
+          ${counts.gone ? `<div class="stat s-gone"><div class="num">${counts.gone}</div><div>Not Found</div></div>` : ""}
+        `;
+
+        const filterDefs = [
+          { f: "all",     label: `All (${details.length})` },
+          { f: "b42",     label: `B42 (${counts.b42})` },
+          { f: "b41",     label: `B41 Only (${counts.b41})` },
+          { f: "unknown", label: `Unknown (${counts.unknown})` },
+        ];
+        if (counts.gone) filterDefs.push({ f: "gone", label: `Not Found (${counts.gone})` });
+
+        document.getElementById("filters").innerHTML = filterDefs
+          .map(({ f, label }) =>
+            `<button class="filter-btn${f === "all" ? " active" : ""}" data-filter="${f}">${label}</button>`
+          ).join("");
+
+        document.querySelectorAll("#filters .filter-btn").forEach(btn => {
+          btn.addEventListener("click", () => applyFilter(btn.dataset.filter));
+        });
+
+        document.getElementById("cards").innerHTML = rendered.join("");
+
+      } catch (err) {
+        document.getElementById("cards").innerHTML = "";
+        errorArea.innerHTML = `<div class="error-msg">Error: ${esc(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("ids-input").addEventListener("keydown", e => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) checkMods();
+    });
+  </script>
+</body>
+</html>

@@ -144,6 +144,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === "GET" && (req.url === "/mod-list" || req.url === "/mod-list.html")) {
+    const file = path.join(__dirname, "mod-list.html");
+    fs.readFile(file, (err, data) => {
+      if (err) { res.writeHead(500); res.end("Internal error"); return; }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(data);
+    });
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/control") {
     let body = "";
     req.on("data", chunk => { body += chunk; if (body.length > 256 * 1024) req.destroy(); });
@@ -166,6 +176,31 @@ const server = http.createServer((req, res) => {
         }
       } catch (err) {
         sendJson(res, 400, { error: err.message });
+      }
+    });
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/details") {
+    let body = "";
+    req.on("data", chunk => { body += chunk; if (body.length > 5 * 1024 * 1024) req.destroy(); });
+    req.on("end", async () => {
+      try {
+        const parsed = JSON.parse(body || "{}");
+        const ids = Array.isArray(parsed.ids)
+          ? [...new Set(parsed.ids.map(String).map(s => s.trim()).filter(s => /^\d+$/.test(s)))]
+          : [];
+        if (!ids.length) { sendJson(res, 400, { error: "No valid numeric IDs provided." }); return; }
+        const allDetails = [];
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+          const batch = ids.slice(i, i + BATCH_SIZE);
+          const details = await checkBatch(batch, createCancelState());
+          allDetails.push(...details);
+          if (i + BATCH_SIZE < ids.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+        }
+        sendJson(res, 200, { details: allDetails });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
       }
     });
     return;
