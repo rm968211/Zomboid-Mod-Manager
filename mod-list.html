@@ -108,6 +108,62 @@
       margin-bottom: 1.25rem;
     }
 
+    .selection-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .selection-bar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .selection-count { font-size: 0.85rem; color: var(--muted); }
+    .selection-count b { color: var(--accent); }
+
+    .selection-actions { display: flex; gap: 0.5rem; }
+
+    .btn-sm {
+      padding: 0.3rem 0.75rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
+    .btn-sm:hover { border-color: var(--accent); }
+
+    #selected-output {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.6rem 0.75rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+      resize: vertical;
+      outline: none;
+      height: 60px;
+    }
+
+    .mod-checkbox {
+      flex-shrink: 0;
+      width: 1.05rem;
+      height: 1.05rem;
+      margin-top: 0.15rem;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
     .filter-btn {
       padding: 0.3rem 0.85rem;
       background: var(--surface);
@@ -279,6 +335,17 @@
       <div id="error-area"></div>
       <div class="summary" id="summary"></div>
       <div class="filters" id="filters"></div>
+      <div class="selection-bar" id="selection-bar" style="display:none">
+        <div class="selection-bar-header">
+          <span class="selection-count"><b id="selected-count">0</b> selected</span>
+          <div class="selection-actions">
+            <button class="btn-sm" onclick="selectVisible(true)">Select Visible</button>
+            <button class="btn-sm" onclick="selectVisible(false)">Clear</button>
+            <button class="btn-sm" onclick="copySelected()">Copy</button>
+          </div>
+        </div>
+        <textarea id="selected-output" readonly placeholder="Check mods below to build a ; separated list here"></textarea>
+      </div>
       <div class="cards" id="cards"></div>
     </div>
   </div>
@@ -344,7 +411,8 @@
 
       if (detail.result !== 1) {
         return { compat, html: `
-          <div class="card" data-compat="${compat}">
+          <div class="card" data-compat="${compat}" data-id="${esc(id)}">
+            <input type="checkbox" class="mod-checkbox" onchange="toggleSelect('${esc(id)}', this.checked)">
             <div class="thumb-placeholder">?</div>
             <div class="card-body">
               <div class="card-header">
@@ -380,7 +448,8 @@
         : `<div class="thumb-placeholder">🧟</div>`;
 
       return { compat, html: `
-        <div class="card" data-compat="${compat}">
+        <div class="card" data-compat="${compat}" data-id="${esc(id)}">
+          <input type="checkbox" class="mod-checkbox" onchange="toggleSelect('${esc(id)}', this.checked)">
           ${thumbHtml}
           <div class="card-body">
             <div class="card-header">
@@ -396,6 +465,30 @@
           </div>
         </div>`
       };
+    }
+
+    function updateSelectionOutput() {
+      const ids = [...document.querySelectorAll(".card")]
+        .filter(card => card.querySelector(".mod-checkbox").checked)
+        .map(card => card.dataset.id);
+      document.getElementById("selected-count").textContent = ids.length;
+      document.getElementById("selected-output").value = ids.join(";");
+    }
+
+    function toggleSelect(_id, _checked) {
+      updateSelectionOutput();
+    }
+
+    function selectVisible(checked) {
+      document.querySelectorAll(".card:not(.hidden) .mod-checkbox")
+        .forEach(cb => { cb.checked = checked; });
+      updateSelectionOutput();
+    }
+
+    function copySelected() {
+      const output = document.getElementById("selected-output");
+      output.select();
+      navigator.clipboard.writeText(output.value).catch(() => document.execCommand("copy"));
     }
 
     function applyFilter(filter) {
@@ -423,6 +516,9 @@
       const btn = document.getElementById("check-btn");
       document.getElementById("summary").innerHTML = "";
       document.getElementById("filters").innerHTML = "";
+      document.getElementById("selection-bar").style.display = "none";
+      document.getElementById("selected-output").value = "";
+      document.getElementById("selected-count").textContent = "0";
       document.getElementById("cards").innerHTML =
         `<div class="loading"><span class="spinner"></span>Fetching ${ids.length} mod${ids.length !== 1 ? "s" : ""}…</div>`;
 
@@ -472,6 +568,7 @@
         });
 
         document.getElementById("cards").innerHTML = rendered.join("");
+        document.getElementById("selection-bar").style.display = "block";
 
       } catch (err) {
         document.getElementById("cards").innerHTML = "";
